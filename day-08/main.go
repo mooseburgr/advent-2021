@@ -9,10 +9,16 @@ import (
 )
 
 const (
+	segmentsIn0 = 6
 	segmentsIn1 = 2
+	segmentsIn2 = 5
+	segmentsIn3 = 5
 	segmentsIn4 = 4
+	segmentsIn5 = 5
+	segmentsIn6 = 6
 	segmentsIn7 = 3
 	segmentsIn8 = 7
+	segmentsIn9 = 6
 )
 
 func main() {
