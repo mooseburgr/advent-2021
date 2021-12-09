@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"sync"
 )
 
 type Location struct {
@@ -23,6 +24,10 @@ type Basin struct {
 
 var (
 	heightMap [][]int
+	localMins []Location
+	basins    []Basin
+	mu        sync.RWMutex
+	done      chan bool
 )
 
 func main() {
@@ -43,24 +48,23 @@ func main() {
 		heightMap = append(heightMap, rowHeights)
 	}
 	fmt.Printf("heightMap dimensions: %dr x %dc\n", len(heightMap), len(heightMap[0]))
+	done := make(chan bool, 1)
 
 	// part 1
-	part1()
+	findAllLocalMins()
 
 	// part 2
-	var basins []Basin
-	for r := 0; r < len(heightMap); r++ {
-		for c := 0; c < len(heightMap[r]); c++ {
-			// anything < 9 is in a basin
-			if heightMap[r][c] < 9 {
-				addOrAppendToBasins(&basins, Location{
-					Row:    r,
-					Col:    c,
-					Height: heightMap[r][c],
-				})
-			}
+	for i, min := range localMins {
+		fmt.Printf("on local min: %v\n", min)
+		addOrAppendToBasins(min)
+
+		if i == len(localMins)-1 {
+			done <- true
 		}
 	}
+
+	// wait until work is done
+	<-done
 
 	sort.Slice(basins, func(i, j int) bool {
 		return len(basins[i].Locations) > len(basins[j].Locations)
@@ -72,40 +76,55 @@ func main() {
 	for r := 0; r < len(heightMap); r++ {
 		for c := 0; c < len(heightMap[r]); c++ {
 			//printColor(r, c, basins)
-			fmt.Print(string("\033[3"+strconv.Itoa(getContainerBasinId(r, c, basins)%7+1)+"m"), heightMap[r][c])
+			fmt.Print(string("\033[3"+strconv.Itoa(getContainerBasinId(r, c, basins)%6+1)+"m"), heightMap[r][c])
 		}
 		fmt.Println("", string("\033[0m"))
 	}
 }
 
-func addOrAppendToBasins(basins *[]Basin, location Location) {
+func addOrAppendToBasins(location Location) {
 	neighbz := getCardinalNeighbors(location.Row, location.Col)
 	var adjacentBasin *Basin
 	// check if location is adjacent to existing basin
-	for i, basin := range *basins {
+	mu.Lock()
+	for i, basin := range basins {
 		if containsAny(basin.Locations, neighbz) {
-			adjacentBasin = &(*basins)[i]
-			adjacentBasin.Locations = append(adjacentBasin.Locations, location)
+			adjacentBasin = &basins[i]
+			if !contains(adjacentBasin.Locations, location) {
+				// only add if not already tracked
+				adjacentBasin.Locations = append(adjacentBasin.Locations, location)
+			}
 		}
 	}
+	mu.Unlock()
+
 	// new basin! uh huh hunny
 	if adjacentBasin == nil {
-		newBasin := Basin{Id: len(*basins)}
+		mu.Lock()
+		newBasin := Basin{Id: len(basins)}
 		newBasin.Locations = append(newBasin.Locations, location)
-		*basins = append(*basins, newBasin)
+		basins = append(basins, newBasin)
+		mu.Unlock()
+	}
+
+	// recursively expand through rest of basin until hitting walls (9s)
+	for _, l := range getCardinalNeighbors(location.Row, location.Col) {
+		if l.Height != 9 && !isAlreadyTrackedInBasin(l) {
+			go addOrAppendToBasins(l)
+		}
 	}
 }
 
-func part1() {
-	var localMins []Location
+func findAllLocalMins() {
 	for r := 0; r < len(heightMap); r++ {
 		for c := 0; c < len(heightMap[r]); c++ {
 			neighbz := getCardinalNeighbors(r, c)
 			if isMinAmongNeighbz(heightMap[r][c], neighbz) {
 				localMins = append(localMins, Location{
-					Row:  r,
-					Col:  c,
-					Risk: heightMap[r][c] + 1,
+					Row:    r,
+					Col:    c,
+					Risk:   heightMap[r][c] + 1,
+					Height: heightMap[r][c],
 				})
 			}
 		}
@@ -141,6 +160,22 @@ func getCardinalNeighbors(r int, c int) []Location {
 				Risk:   1 + heightMap[r-1][c],
 			})
 	}
+	// west
+	if c > 0 {
+		neighbz = append(neighbz,
+			Location{
+				Row:    r,
+				Col:    c - 1,
+				Height: heightMap[r][c-1],
+				Risk:   1 + heightMap[r][c-1],
+			})
+	}
+	neighbz = append(neighbz, getSouthAndEastNeighbors(r, c)...)
+	return neighbz
+}
+
+func getSouthAndEastNeighbors(r int, c int) []Location {
+	var neighbz []Location
 	// east
 	if c < len(heightMap[r])-1 {
 		neighbz = append(neighbz,
@@ -161,17 +196,6 @@ func getCardinalNeighbors(r int, c int) []Location {
 				Risk:   1 + heightMap[r+1][c],
 			})
 	}
-	// west
-	if c > 0 {
-		neighbz = append(neighbz,
-			Location{
-				Row:    r,
-				Col:    c - 1,
-				Height: heightMap[r][c-1],
-				Risk:   1 + heightMap[r][c-1],
-			})
-	}
-	//fmt.Printf("neighbz for r%d c%d are %v\n", r, c, neighbz)
 	return neighbz
 }
 
@@ -182,6 +206,17 @@ func getContainerBasinId(r int, c int, basins []Basin) int {
 		}
 	}
 	return -1
+}
+
+func isAlreadyTrackedInBasin(loc Location) bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	for _, basin := range basins {
+		if contains(basin.Locations, loc) {
+			return true
+		}
+	}
+	return false
 }
 
 func (l *Location) Equals(other Location) bool {
