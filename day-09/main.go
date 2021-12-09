@@ -7,7 +7,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"sync"
+	"time"
 )
 
 type Location struct {
@@ -26,11 +26,10 @@ var (
 	heightMap [][]int
 	localMins []Location
 	basins    []Basin
-	mu        sync.RWMutex
-	done      chan bool
 )
 
 func main() {
+	start := time.Now()
 	file, err := os.Open("./day-09/input.txt")
 	if err != nil {
 		log.Fatalf("unable to read file: %v", err)
@@ -48,23 +47,15 @@ func main() {
 		heightMap = append(heightMap, rowHeights)
 	}
 	fmt.Printf("heightMap dimensions: %dr x %dc\n", len(heightMap), len(heightMap[0]))
-	done := make(chan bool, 1)
 
 	// part 1
 	findAllLocalMins()
 
 	// part 2
-	for i, min := range localMins {
+	for _, min := range localMins {
 		fmt.Printf("on local min: %v\n", min)
 		addOrAppendToBasins(min)
-
-		if i == len(localMins)-1 {
-			done <- true
-		}
 	}
-
-	// wait until work is done
-	<-done
 
 	sort.Slice(basins, func(i, j int) bool {
 		return len(basins[i].Locations) > len(basins[j].Locations)
@@ -80,13 +71,13 @@ func main() {
 		}
 		fmt.Println("", string("\033[0m"))
 	}
+	fmt.Println("finished after", time.Since(start))
 }
 
 func addOrAppendToBasins(location Location) {
 	neighbz := getCardinalNeighbors(location.Row, location.Col)
 	var adjacentBasin *Basin
 	// check if location is adjacent to existing basin
-	mu.Lock()
 	for i, basin := range basins {
 		if containsAny(basin.Locations, neighbz) {
 			adjacentBasin = &basins[i]
@@ -96,21 +87,18 @@ func addOrAppendToBasins(location Location) {
 			}
 		}
 	}
-	mu.Unlock()
 
 	// new basin! uh huh hunny
 	if adjacentBasin == nil {
-		mu.Lock()
 		newBasin := Basin{Id: len(basins)}
 		newBasin.Locations = append(newBasin.Locations, location)
 		basins = append(basins, newBasin)
-		mu.Unlock()
 	}
 
 	// recursively expand through rest of basin until hitting walls (9s)
 	for _, l := range getCardinalNeighbors(location.Row, location.Col) {
 		if l.Height != 9 && !isAlreadyTrackedInBasin(l) {
-			go addOrAppendToBasins(l)
+			addOrAppendToBasins(l)
 		}
 	}
 }
@@ -209,8 +197,6 @@ func getContainerBasinId(r int, c int, basins []Basin) int {
 }
 
 func isAlreadyTrackedInBasin(loc Location) bool {
-	mu.RLock()
-	defer mu.RUnlock()
 	for _, basin := range basins {
 		if contains(basin.Locations, loc) {
 			return true
