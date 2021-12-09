@@ -76,7 +76,7 @@ func main() {
 	for r := 0; r < len(heightMap); r++ {
 		for c := 0; c < len(heightMap[r]); c++ {
 			//printColor(r, c, basins)
-			fmt.Print(string("\033[3"+strconv.Itoa(getContainerBasinId(r, c, basins)%6+1)+"m"), heightMap[r][c])
+			fmt.Print(string("\033[3"+strconv.Itoa(getContainerBasinId(r, c, basins)%7+1)+"m"), heightMap[r][c])
 		}
 		fmt.Println("", string("\033[0m"))
 	}
