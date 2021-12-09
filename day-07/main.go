@@ -54,12 +54,12 @@ func main() {
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Fuel < results[j].Fuel
 	})
-	fmt.Println("most efficient result:", results[0])
+	println("most efficient result:", results[0])
 
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Fuel > results[j].Fuel
 	})
-	fmt.Println("least efficient result:", results[0])
+	println("least efficient result:", results[0])
 }
 
 func calculateTotalFuel(targetPosition int) {

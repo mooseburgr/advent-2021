@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -21,7 +20,7 @@ func main() {
 	var measurements []int
 
 	for scanner.Scan() {
-		//fmt.Println("read:", scanner.Text())
+		//println("read:", scanner.Text())
 		depth, _ := strconv.Atoi(scanner.Text())
 		measurements = append(measurements, depth)
 	}
@@ -41,8 +40,8 @@ func main() {
 		}
 	}
 
-	fmt.Println("part 1: # increases =", increases) // 1832
-	fmt.Println("rolling sums length =", len(rollingSums))
+	println("part 1: # increases =", increases) // 1832
+	println("rolling sums length =", len(rollingSums))
 
 	prev = -1
 	increases = -1
@@ -52,5 +51,5 @@ func main() {
 		}
 		prev = sum
 	}
-	fmt.Println("part 2: # increases =", increases) // 1858
+	println("part 2: # increases =", increases) // 1858
 }

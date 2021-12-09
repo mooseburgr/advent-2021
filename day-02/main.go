@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -32,8 +31,8 @@ func main() {
 	for scanner.Scan() {
 		handleCommand(scanner.Text(), &position, &aim)
 	}
-	fmt.Println("final position:", position)
-	fmt.Println("product:", position.X*position.Y)
+	println("final position:", position)
+	println("product:", position.X*position.Y)
 }
 
 func handleCommand(input string, position *Vector, aim *int) {
